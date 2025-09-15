@@ -1,0 +1,201 @@
+Source of Tables
+----------------
+
+Supplementary Table 1. the files "germline_expression_at_protein_level_of_brain_associated_genes.txt" and "germline_expression_at_protein_level_of_brain_associated_genes.conservative.txt", created by 2.summarise_germline_protein_expression_of_brain_genes.pl
+Supplementary Table 2. the file "num_of_brain_developmental_genes_detectable_in_whole_testis_atlas.full.txt", created by 5.get_germline_exp_levels_of_brain_developmental_genes_in_whole_testis_atlas.pl
+Supplementary Table 3. the file "num_of_brain_developmental_genes_detectable_in_whole_testis_atlas.summary.txt", created by 5.get_germline_exp_levels_of_brain_developmental_genes_in_whole_testis_atlas.pl
+Supplementary Table 4. manually created, including the differential expression analysis results from the files "whole_testis_atlas_DEGs/Salehi2023.txt", "whole_testis_atlas_DEGs/Wang2025-DEGsAllCells.txt", "whole_testis_atlas_DEGs/Wang2025-DEGsGermCells.txt", and "whole_testis_atlas_DEGs/Wang2025-DEGsGermCells_part1.txt"
+Supplementary Table 5. manually created, using data from the Human Protein Atlas (https://www.proteinatlas.org/)
+Supplementary Table 6. the files "num_of_germline_proteins_also_found_in_brain.txt" and "num_of_proteins_only_found_in_germline_and_brain.txt", created by 10.what_proteins_are_only_expressed_in_germline_and_brain.pl
+Supplementary Table 7. the file "germline_expression_at_protein_level_of_genes_with_human_specific_changes.txt", created by 11.summarise_germline_protein_expression_of_genes_with_human_specific_changes.pl
+
+R Commands for Creating Figures
+-------------------------------
+
+Figure 1. manually created, and adapted from that originally published in Wood and Goriely (2022) The impact of paternal age on new mutations and disease in the next generation. Fertility and Sterility. 118(6):1001-1012. https://doi.org/10.1016/j.fertnstert.2022.10.017 (this paper published under a CC-BY license)
+
+Figure 2A. using dataframe_for_making_upset_plot_of_brain_associated_genes.txt, made by 1.create_list_of_brain_associated_genes.pl
+Figure 2B. using human_adult.rds, produced during previous work: https://github.com/sjbush/spg_atlas/6.refine_clustering_of_whole_testes_atlas.R
+Figure 2C. using data_for_making_barplot_of_germline_transcription_of_brain_associated_genes.txt, made by 5.get_germline_exp_levels_of_brain_developmental_genes_in_whole_testis_atlas.pl
+Figure 2D. using dataframe_for_making_upset_plot_of_germline_expression_of_brain_associated_genes.txt, made by 9.make_upset_plot_of_germline_protein_expression_of_brain_genes.pl
+
+library(Seurat)
+library(tidyverse)
+library(ComplexUpset)
+library(grid)
+theme_set(theme_bw())
+
+df<-read.table('/data/home/Stephen/testis_brain/dataframe_for_making_upset_plot_of_brain_associated_genes.txt',header=T,sep='\t',check.names=FALSE)
+rownames(df)<-df$Gene
+df$Gene<-NULL
+#fig2a <- upset(df, colnames(df), name='Association with brain', width_ratio=0.1, min_size=10, wrap=TRUE, set_sizes=(upset_set_size() + theme(axis.text.x=element_text(angle=90))), base_annotations=list('No. of genes'=intersection_size(text=list(vjust=-0.1,hjust=-0.1,angle=45,size=3,col='black'))) ) + ggtitle('A. Genes with brain-associated phenotypes')
+fig2a <- upset(
+    df,
+    colnames(df),
+	name='Association with brain',
+	width_ratio=0.1,
+	min_size=10,
+	wrap=TRUE,
+	set_sizes=(upset_set_size() + theme(axis.text.x=element_text(angle=90))),
+    base_annotations=list(
+        'No. of genes'=intersection_size(
+            text=list(vjust=-0.1,hjust=-0.1,angle=45,size=3,col='black'),
+            mapping=aes(fill='bars_color')
+        ) + scale_fill_manual(values=c('bars_color'='gray70'), guide='none')
+    )
+) + ggtitle("A") # + ggtitle('A. Genes with brain-associated phenotypes (n = 7193)')
+
+testes<-readRDS('/data/home/Stephen/human_adult_SSCs/results/human_adult.rds')
+DefaultAssay(testes) <- 'integrated'
+new.cluster.ids <- c(
+"late spermatid 1",
+"early spermatid 1",
+"early spermatid 2",
+"myoid/Leydig",
+"spermatocyte",
+"late spermatid 2",
+"undiff SPG",
+"endothelia/macrophages",
+"diff SPG",
+"Sertoli"
+)
+new.cluster.ids <- factor(new.cluster.ids, levels = c("undiff SPG","diff SPG","spermatocyte","early spermatid 1","early spermatid 2","late spermatid 1","late spermatid 2","myoid/Leydig","Sertoli","endothelia/macrophages"))
+names(new.cluster.ids) <- levels(testes)
+testes <- RenameIdents(testes, new.cluster.ids)
+
+fig2b = DimPlot(testes, reduction = "umap", label=TRUE, pt.size = .1, label.size = 2) + NoLegend() + scale_colour_manual(values=c("undiff SPG" = "red", "diff SPG" = "orange", "spermatocyte" = "yellow", "early spermatid 1" = "green", "early spermatid 2" = "forestgreen", "late spermatid 1" = "cornflowerblue", "late spermatid 2" = "purple", "myoid/Leydig" = "chocolate3", "Sertoli" = "gray70", "endothelia/macrophages" = "coral4")) + ggtitle("B") # + ggtitle('B. Single-cell testis atlas')
+fig2b[[1]]$layers[[1]]$aes_params$alpha = 0.5
+
+df<-read.table('/data/home/Stephen/human_adult_SSCs/data_for_making_barplot_of_germline_transcription_of_brain_associated_genes.txt',header=T,sep='\t')
+df$Gene.category <- factor(df$Gene.category, levels = c("undiff SPG","diff SPG","spermatocyte","early spermatid 1","early spermatid 2","late spermatid 1","late spermatid 2","myoid/Leydig","Sertoli","endothelia"))
+fig2c <- ggplot(df, aes(x=as.factor(Gene.category),y=Number,fill=Gene.category)) + geom_bar(stat="identity") + xlab('Cell cluster in which gene is differentially expressed') + ylab('Number of genes') + theme(axis.text.x = element_text(angle = 90, vjust = 1, hjust=1)) + theme(legend.position = "none") + scale_fill_manual(values=c("undiff SPG" = "red", "diff SPG" = "orange", "spermatocyte" = "yellow", "early spermatid 1" = "green", "early spermatid 2" = "forestgreen", "late spermatid 1" = "cornflowerblue", "late spermatid 2" = "purple", "myoid/Leydig" = "chocolate3", "Sertoli" = "gray70", "endothelia" = "coral4")) + ggtitle("C") # + ggtitle("C. mRNA expression of brain-associated genes\nin human testis (data from scRNA-seq testis atlas)")
+
+df<-read.table('/data/home/Stephen/testis_brain/dataframe_for_making_upset_plot_of_germline_expression_of_brain_associated_genes.txt',header=T,sep='\t',check.names=FALSE)
+rownames(df)<-df$Gene
+df$Gene<-NULL
+fig2d <- upset(
+    df,
+    colnames(df),
+	name='Testicular cell type',
+	width_ratio=0.1,
+	min_size=15,
+	wrap=TRUE,
+	set_sizes=(upset_set_size() + theme(axis.text.x=element_text(angle=90))),
+    base_annotations=list(
+        'No. of proteins'=intersection_size(
+            text=list(vjust=-0.1,hjust=-0.1,angle=45,size=3,col='black'),
+            mapping=aes(fill='bars_color')
+        ) + scale_fill_manual(values=c('bars_color'='gray70'), guide='none')
+    )
+) + ggtitle('D') # + ggtitle('D. Testicular cells in which brain-associated proteins are detected (n = 2049)')
+
+png(file="/data/home/Stephen/testis_brain/Figure 2.png",width=10,height=12,units='in',res=300) # see http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/81-ggplot2-easy-way-to-mix-multiple-graphs-on-the-same-page/
+grid.newpage()
+pushViewport(viewport(layout = grid.layout(nrow=3,ncol=2)))
+define_region <- function(row, col){
+  viewport(layout.pos.row = row, layout.pos.col = col)
+}
+print(fig2a, vp = define_region(row=1,col=1:2))
+print(fig2b, vp = define_region(row=2,col=1))
+print(fig2c, vp = define_region(row=2,col=2))
+print(fig2d, vp = define_region(row=3,col=1:2))
+dev.off()
+
+R Commands for Creating Supplementary Figures
+---------------------------------------------
+
+Supplementary Figure 1A. using dataframe_for_making_upset_plot_of_brain_associated_genes.conservative.txt, made by 1.create_list_of_brain_associated_genes.pl
+Supplementary Figure 1B. using human_adult.rds, produced during previous work: https://github.com/sjbush/spg_atlas/6.refine_clustering_of_whole_testes_atlas.R
+Supplementary Figure 1C. using data_for_making_barplot_of_germline_transcription_of_brain_associated_genes.conservative.txt, made by 5.get_germline_exp_levels_of_brain_developmental_genes_in_whole_testis_atlas.pl
+Supplementary Figure 1D. using dataframe_for_making_upset_plot_of_germline_expression_of_brain_associated_genes.conservative.txt, made by 9.make_upset_plot_of_germline_protein_expression_of_brain_genes.pl
+
+library(Seurat)
+library(tidyverse)
+library(ComplexUpset)
+library(grid)
+theme_set(theme_bw())
+
+df<-read.table('/data/home/Stephen/testis_brain/dataframe_for_making_upset_plot_of_brain_associated_genes.conservative.txt',header=T,sep='\t',check.names=FALSE)
+rownames(df)<-df$Gene
+df$Gene<-NULL
+figS1a <- upset(
+    df,
+    colnames(df),
+	name='Association with brain',
+	width_ratio=0.1,
+	min_size=10,
+	wrap=TRUE,
+	set_sizes=(upset_set_size() + theme(axis.text.x=element_text(angle=90))),
+    base_annotations=list(
+        'No. of genes'=intersection_size(
+            text=list(vjust=-0.1,hjust=-0.1,angle=45,size=3,col='black'),
+            mapping=aes(fill='bars_color')
+        ) + scale_fill_manual(values=c('bars_color'='gray70'), guide='none')
+    )
+) + ggtitle("A")
+
+testes<-readRDS('/data/home/Stephen/human_adult_SSCs/results/human_adult.rds')
+DefaultAssay(testes) <- 'integrated'
+new.cluster.ids <- c(
+"late spermatid 1",
+"early spermatid 1",
+"early spermatid 2",
+"myoid/Leydig",
+"spermatocyte",
+"late spermatid 2",
+"undiff SPG",
+"endothelia/macrophages",
+"diff SPG",
+"Sertoli"
+)
+new.cluster.ids <- factor(new.cluster.ids, levels = c("undiff SPG","diff SPG","spermatocyte","early spermatid 1","early spermatid 2","late spermatid 1","late spermatid 2","myoid/Leydig","Sertoli","endothelia/macrophages"))
+names(new.cluster.ids) <- levels(testes)
+testes <- RenameIdents(testes, new.cluster.ids)
+
+figS1b = DimPlot(testes, reduction = "umap", label=TRUE, pt.size = .1, label.size = 2) + NoLegend() + scale_colour_manual(values=c("undiff SPG" = "red", "diff SPG" = "orange", "spermatocyte" = "yellow", "early spermatid 1" = "green", "early spermatid 2" = "forestgreen", "late spermatid 1" = "cornflowerblue", "late spermatid 2" = "purple", "myoid/Leydig" = "chocolate3", "Sertoli" = "gray70", "endothelia/macrophages" = "coral4")) + ggtitle("B")
+figS1b[[1]]$layers[[1]]$aes_params$alpha = 0.5
+
+df<-read.table('/data/home/Stephen/human_adult_SSCs/data_for_making_barplot_of_germline_transcription_of_brain_associated_genes.conservative.txt',header=T,sep='\t')
+df$Gene.category <- factor(df$Gene.category, levels = c("undiff SPG","diff SPG","spermatocyte","early spermatid 1","early spermatid 2","late spermatid 1","late spermatid 2","myoid/Leydig","Sertoli","endothelia"))
+figS1c <- ggplot(df, aes(x=as.factor(Gene.category),y=Number,fill=Gene.category)) + geom_bar(stat="identity") + xlab('Cell cluster in which gene is differentially expressed') + ylab('Number of genes') + theme(axis.text.x = element_text(angle = 90, vjust = 1, hjust=1)) + theme(legend.position = "none") + scale_fill_manual(values=c("undiff SPG" = "red", "diff SPG" = "orange", "spermatocyte" = "yellow", "early spermatid 1" = "green", "early spermatid 2" = "forestgreen", "late spermatid 1" = "cornflowerblue", "late spermatid 2" = "purple", "myoid/Leydig" = "chocolate3", "Sertoli" = "gray70", "endothelia" = "coral4")) + ggtitle("C")
+
+df<-read.table('/data/home/Stephen/testis_brain/dataframe_for_making_upset_plot_of_germline_expression_of_brain_associated_genes.conservative.txt',header=T,sep='\t',check.names=FALSE)
+rownames(df)<-df$Gene
+df$Gene<-NULL
+figS1d <- upset(
+    df,
+    colnames(df),
+	name='Testicular cell type',
+	width_ratio=0.1,
+	min_size=15,
+	wrap=TRUE,
+	set_sizes=(upset_set_size() + theme(axis.text.x=element_text(angle=90))),
+    base_annotations=list(
+        'No. of proteins'=intersection_size(
+            text=list(vjust=-0.1,hjust=-0.1,angle=45,size=3,col='black'),
+            mapping=aes(fill='bars_color')
+        ) + scale_fill_manual(values=c('bars_color'='gray70'), guide='none')
+    )
+) + ggtitle('D')
+
+png(file="/data/home/Stephen/testis_brain/Supplementary Figure 1.png",width=10,height=12,units='in',res=300) # see http://www.sthda.com/english/articles/24-ggpubr-publication-ready-plots/81-ggplot2-easy-way-to-mix-multiple-graphs-on-the-same-page/
+grid.newpage()
+pushViewport(viewport(layout = grid.layout(nrow=3,ncol=2)))
+define_region <- function(row, col){
+  viewport(layout.pos.row = row, layout.pos.col = col)
+}
+print(figS1a, vp = define_region(row=1,col=1:2))
+print(figS1b, vp = define_region(row=2,col=1))
+print(figS1c, vp = define_region(row=2,col=2))
+print(figS1d, vp = define_region(row=3,col=1:2))
+dev.off()
+
+Supplementary Figure 2. from code in 3.get_germline_avg_tpm_of_brain_genes_in_our_testis_atlas.pl
+Supplementary Figure 3. from code in 4.get_germline_exp_levels_of_brain_genes_in_other_testis_atlases.pl
+Supplementary Figure 4. from code in 4.get_germline_exp_levels_of_brain_genes_in_other_testis_atlases.pl
+Supplementary Figure 5. from code in 6.where_is_each_category_of_brain_gene_expressed_in_whole_testis_atlas.pl
+Supplementary Figure 6. from code in 7.where_is_each_category_of_brain_gene_expressed_in_other_testis_atlases.pl
+Supplementary Figure 7. from code in 7.where_is_each_category_of_brain_gene_expressed_in_other_testis_atlases.pl
+Supplementary Figure 8. from code in 7.where_is_each_category_of_brain_gene_expressed_in_other_testis_atlases.pl
+Supplementary Figure 9. from code in 7.where_is_each_category_of_brain_gene_expressed_in_other_testis_atlases.pl
+Supplementary Figure 10. from code in 8.where_is_each_category_of_brain_gene_expressed_in_HPA.pl
